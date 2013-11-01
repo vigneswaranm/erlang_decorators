@@ -26,9 +26,6 @@ replace_args_decorated(replaced1, replaced2) -> ok.
 multiple_decorators(replaced1, replaced2) ->
     ok.
 
-test() ->
-    (fun erlang:list_to_integer/1)("1").
-
 replace_ret_value_test()->
     ?assertEqual(replaced, replace_ret_val_decorated()),
     ?assertEqual(ok, replace_args_decorated(arg1, arg2)),

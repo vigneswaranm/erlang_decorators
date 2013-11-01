@@ -7,12 +7,12 @@
 %% TODO: add warnings for rogue decorators
 parse_transform(Ast, _Options) ->
     %%io:format("~p~n=======~n", [Ast]),
-    io:format("~s~n=======~n", [pretty_print(Ast)]),
+    %%io:format("~s~n=======~n", [pretty_print(Ast)]),
     {ExtendedAst2, RogueDecorators} = lists:mapfoldl(fun transform_node/2, [], Ast),
     Ast2 = lists:flatten(lists:filter(fun (Node) -> Node =/= nil end, ExtendedAst2))
     ++ emit_errors_for_rogue_decorators(RogueDecorators),
     %%io:format("~p~n<<<<~n", [Ast2]),
-    io:format("~s~n>>>>~n", [pretty_print(Ast2)]),
+    %%io:format("~s~n>>>>~n", [pretty_print(Ast2)]),
     Ast2.
 
 
