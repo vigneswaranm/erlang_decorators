@@ -12,14 +12,14 @@ parse_transform(Ast, _Options) ->
     Ast2 = lists:flatten(lists:filter(fun (Node) -> Node =/= nil end, ExtendedAst2))
     ++ emit_errors_for_rogue_decorators(RogueDecorators),
     %%io:format("~p~n<<<<~n", [Ast2]),
-    %%io:format("~s~n>>>>~n", [pretty_print(Ast2)]),
+    %io:format("~s~n>>>>~n", [pretty_print(Ast2)]),
     Ast2.
 
 
 pretty_print(Ast) -> lists:flatten([erl_pp:form(N) || N<-Ast]).
 
 emit_errors_for_rogue_decorators(DecoratorList) ->
-    [{error, {Line, erl_parse, ["rogue decorator ", io_lib:format("~p", [D]) ]}} || {attribute, Line, decorate, D} <- DecoratorList].
+    [{error, {Line, erl_parse, ["rogue decorator ", io_lib:format("~p", [D])]}} || {attribute, Line, decorate, D} <- DecoratorList].
 
 %% transforms module level nodes
 %% see http://www.erlang.org/doc/apps/erts/absform.html
@@ -36,7 +36,7 @@ transform_node(Node={function, _Line, _FuncName, _Arity, _Clauses}, DecoratorLis
     %% apply decorators to this function and reset decorator list
     {apply_decorators(Node, DecoratorList), []};
 transform_node(Node={eof, _Line}, DecoratorList) ->
-    {[Node| emit_errors_for_rogue_decorators(DecoratorList) ], []};
+    {[Node| emit_errors_for_rogue_decorators(DecoratorList)], []};
 transform_node(Node, DecoratorList) ->
     %% some other form (only other valid forms are other attributes)
     %% keep going
@@ -70,12 +70,10 @@ function_form_trampoline(Line, FuncName, Arity, DecoratorList) ->
      [{clause, Line,
        emit_arguments(Line, ArgNames),
        emit_guards(Line, []),
-       [
-        emit_local_call( Line,
-                         generated_func_name({decorator_wrapper, FuncName, Arity, NumDecorators}),
-                         [emit_atom_list(Line, ArgNames)]
-                       )
-       ]
+       [emit_local_call(
+          Line,
+          generated_func_name({decorator_wrapper, FuncName, Arity, NumDecorators}),
+          [emit_atom_list(Line, ArgNames)])]
       }]}.
 
 
@@ -86,10 +84,8 @@ function_form_unpacker(Line, FuncName, Arity) ->
      generated_func_name({decorator_wrapper, FuncName, Arity, 0}), 1,
      [{clause, Line,
        [emit_atom_list(Line, ArgNames)],
-       emit_guards(Line, []), [
-                              {call, Line, {atom, Line, OriginalFunc},
-                               emit_arguments(Line, ArgNames)}
-                             ]
+       emit_guards(Line, []), [{call, Line, {atom, Line, OriginalFunc},
+                                emit_arguments(Line, ArgNames)}]
       }]}.
 
 
@@ -97,7 +93,7 @@ function_forms_decorator_chain(Line, FuncName, Arity, DecoratorList) ->
     NumDecorators = length(DecoratorList),
     DecoratorIndexes = lists:zip(DecoratorList, lists:seq(1, NumDecorators)),
     [function_form_decorator_chain(Line, FuncName, Arity, D, I)
-     || {{attribute, _, decorate, D}, I} <- DecoratorIndexes ] .
+     || {{attribute, _, decorate, D}, I} <- DecoratorIndexes].
 
 
 function_form_decorator_chain(Line, FuncName, Arity, Decorator, DecoratorIndex) ->
@@ -109,7 +105,7 @@ function_form_decorator_chain(Line, FuncName, Arity, Decorator, DecoratorIndex) 
        emit_arguments(Line, ['ArgList'] ),
        emit_guards(Line, []),
        [
-        %% DecMod:Decfun ( fun NextFun/1, ArgList).
+        %% DecMod:Decfun(fun NextFun/1, ArgList).
         emit_decorated_fun(Line, Decorator, NextFuncName, 'ArgList')
        ]
       }]
@@ -142,7 +138,7 @@ emit_arguments(Line, AtomList) ->
 emit_guards(_Line, []) ->
     [];
 emit_guards(_, _) ->
-    throw(nyi).
+    throw(not_yet_implemented).
 
 
 emit_atom_list(Line, AtomList) ->
@@ -154,11 +150,11 @@ emit_atom_list(Line, AtomList) ->
 
 
 
-generated_func_name( {original, OrigName} ) ->
+generated_func_name({original, OrigName} ) ->
     atom_name([OrigName, "_original___"]);
-generated_func_name( {trampoline, OrigName} ) ->
+generated_func_name({trampoline, OrigName} ) ->
     OrigName;
-generated_func_name( {decorator_wrapper, OrigName, Arity, N} ) ->
+generated_func_name({decorator_wrapper, OrigName, Arity, N} ) ->
     atom_name([OrigName, "_arity", Arity, "_", N]).
 
 %% list() -> atom()
