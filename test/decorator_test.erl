@@ -1,13 +1,13 @@
 -module(decorator_test).
 -include_lib("eunit/include/eunit.hrl").
--export([replace_return_value_decorator/2]).
+-export([replace_return_value_decorator/3, options_decorator/3]).
 
 -compile([{parse_transform, decorators}]).
 
 
 % example decorator that replaces the return value with the atom 'replaced'
 % note that we always pass the arguments as a single list to the next fun
-replace_return_value_decorator(F, Args)->
+replace_return_value_decorator(F, Args, [])->
     _R = apply(F, Args),
     replaced.
 
@@ -15,7 +15,7 @@ replace_return_value_decorator(F, Args)->
 replace_ret_val_decorated() -> ok.
 
 
-replace_args_decorator(F, _Args)->
+replace_args_decorator(F, _Args, [])->
     apply(F, [replaced1, replaced2]).
 
 -decorate(replace_args_decorator).
@@ -26,8 +26,18 @@ replace_args_decorated(replaced1, replaced2) -> ok.
 multiple_decorators(replaced1, replaced2) ->
     ok.
 
+options_decorator(Fun, Args, Options) ->
+    ?assertEqual([{option, value}], Options),
+    apply(Fun, Args).
+
+-decorate({options_decorator, [{option, value}]}).
+-decorate({?MODULE, options_decorator, [{option, value}]}).
+options_decorated() ->
+    ok.
+
 replace_ret_value_test()->
     ?assertEqual(replaced, replace_ret_val_decorated()),
     ?assertEqual(ok, replace_args_decorated(arg1, arg2)),
-    ?assertEqual(replaced, multiple_decorators(arg1, arg2)).
+    ?assertEqual(replaced, multiple_decorators(arg1, arg2)),
+    ?assertEqual(ok, options_decorated()).
 

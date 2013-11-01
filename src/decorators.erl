@@ -11,8 +11,8 @@ parse_transform(Ast, _Options) ->
     {ExtendedAst2, RogueDecorators} = lists:mapfoldl(fun transform_node/2, [], Ast),
     Ast2 = lists:flatten(lists:filter(fun (Node) -> Node =/= nil end, ExtendedAst2))
     ++ emit_errors_for_rogue_decorators(RogueDecorators),
-    %%io:format("~p~n<<<<~n", [Ast2]),
-    %%io:format("~s~n>>>>~n", [pretty_print(Ast2)]),
+    io:format("~p~n<<<<~n", [Ast2]),
+    io:format("~s~n>>>>~n", [pretty_print(Ast2)]),
     Ast2.
 
 
@@ -104,19 +104,31 @@ function_form_decorator_chain(Line, FuncName, Arity, Decorator, DecoratorIndex) 
     }.
 
 
-emit_decorated_fun(Line, {DecMod, DecFun}, InnerFunName, ArgNames) ->
+emit_decorated_fun(Line, {DecMod, DecFun}, InnerFunName, ArgNames)
+  when is_atom(DecMod), is_atom(DecFun) ->
+    emit_decorated_fun(Line, {DecMod, DecFun, []}, InnerFunName, ArgNames);
+
+emit_decorated_fun(Line, DecFun, InnerFunName, ArgNames)
+  when is_atom(DecFun) ->
+    emit_decorated_fun(Line, {DecFun, []}, InnerFunName, ArgNames);
+
+emit_decorated_fun(Line, {DecMod, DecFun, DecData}, InnerFunName, ArgNames)
+  when is_list(DecData) ->
     Arity = length(ArgNames),
     {call, Line,
      {remote, Line, {atom, Line, DecMod}, {atom, Line, DecFun}},
      [
       {'fun', Line, {function, InnerFunName, Arity}},
-      emit_var_list(Line, ArgNames)
+      emit_var_list(Line, ArgNames),
+      erl_parse:abstract(DecData)
      ]
     };
-emit_decorated_fun(Line, DecFun, InnerFunName, ArgNames) ->
+emit_decorated_fun(Line, {DecFun, DecData}, InnerFunName, ArgNames)
+  when is_list(DecData) ->
     Arity = length(ArgNames),
     ArgList = [{'fun', Line, {function, InnerFunName, Arity}},
-               emit_var_list(Line, ArgNames)],
+               emit_var_list(Line, ArgNames),
+               erl_parse:abstract(DecData)],
     emit_local_call(Line, DecFun, ArgList).
 
 
@@ -130,7 +142,6 @@ emit_guards(_Line, []) ->
     [];
 emit_guards(_, _) ->
     throw(not_yet_implemented).
-
 
 emit_var_list(Line, AtomList) ->
     %% build a list of args out of cons cells

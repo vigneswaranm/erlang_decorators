@@ -4,13 +4,26 @@ An early implementation of python style decorators for Erlang.
 
 # Usage
 
+There are 4 ways to decorate a function:
+```erlang
+-decorate(my_decorator). %% local function, no decorator data
+-decorate({my_decorator, [{option, value}]}). %% local function, with data
+-decorate({my_module, my_decorator}). %% external function, no decorator data
+-decorate({my_module, my_decorator, [{option, value}]}). %% external function, with data
+```
+
+If no data/options is specified it defaults to the empty list.
+
+
+Example:
+
 ```erlang
 -module(mymod).
 -compile([{parse_transform, decorators}]).
 
 -export([demo/0]).
 
-my_decorator(OriginalFun, OriginalArgs) ->
+my_decorator(OriginalFun, OriginalArgs, _UnusedData = []) ->
     Start = erlang:now(),
     Result = apply(OriginalFun, OriginalArgs),
     io:format("call to ~p (args: ~p) took: ~f ms~n",
@@ -30,4 +43,3 @@ demo() ->
 
 # TODO
   * Allow custom named decorators for nicer syntax
-  * Allow passing arguments to decorators
