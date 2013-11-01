@@ -12,7 +12,7 @@ parse_transform(Ast, _Options) ->
     Ast2 = lists:flatten(lists:filter(fun (Node) -> Node =/= nil end, ExtendedAst2))
     ++ emit_errors_for_rogue_decorators(RogueDecorators),
     %%io:format("~p~n<<<<~n", [Ast2]),
-    %io:format("~s~n>>>>~n", [pretty_print(Ast2)]),
+    %%io:format("~s~n>>>>~n", [pretty_print(Ast2)]),
     Ast2.
 
 
@@ -50,9 +50,7 @@ apply_decorators(Node={function, Line, FuncName, Arity, _Clauses}, DecoratorList
      %% output the original function renamed
      function_form_original(Node),
      %% output a trampoline into our decorator chain
-     function_form_trampoline(Line, FuncName, Arity, DecoratorList),
-     %% output the funname_arityn_0 function to unpack the arg list and forward to the original
-     function_form_unpacker(Line, FuncName, Arity)
+     function_form_trampoline(Line, FuncName, Arity, DecoratorList)
      %% output our decorator chain
      | function_forms_decorator_chain(Line, FuncName, Arity, DecoratorList)
     ].
@@ -73,19 +71,7 @@ function_form_trampoline(Line, FuncName, Arity, DecoratorList) ->
        [emit_local_call(
           Line,
           generated_func_name({decorator_wrapper, FuncName, Arity, NumDecorators}),
-          [emit_atom_list(Line, ArgNames)])]
-      }]}.
-
-
-function_form_unpacker(Line, FuncName, Arity) ->
-    ArgNames = arg_names(Arity),
-    OriginalFunc = generated_func_name({original, FuncName}),
-    {function, Line,
-     generated_func_name({decorator_wrapper, FuncName, Arity, 0}), 1,
-     [{clause, Line,
-       [emit_atom_list(Line, ArgNames)],
-       emit_guards(Line, []), [{call, Line, {atom, Line, OriginalFunc},
-                                emit_arguments(Line, ArgNames)}]
+          emit_arguments(Line, ArgNames))]
       }]}.
 
 
@@ -97,37 +83,42 @@ function_forms_decorator_chain(Line, FuncName, Arity, DecoratorList) ->
 
 
 function_form_decorator_chain(Line, FuncName, Arity, Decorator, DecoratorIndex) ->
-    NextFuncName = generated_func_name({decorator_wrapper, FuncName, Arity, DecoratorIndex-1}),
+    ArgNames = arg_names(Arity),
+    NextFuncName = case DecoratorIndex - 1 of
+                       0 ->
+                           generated_func_name({original, FuncName});
+                       N ->
+                           generated_func_name({decorator_wrapper, FuncName, Arity, N})
+                   end,
     {function, Line,
-     generated_func_name({decorator_wrapper, FuncName, Arity, DecoratorIndex}), %% name
-     1, %% arity
+     generated_func_name({decorator_wrapper, FuncName, Arity, DecoratorIndex}),
+     Arity,
      [{clause, Line,
-       emit_arguments(Line, ['ArgList'] ),
+       emit_arguments(Line, ArgNames),
        emit_guards(Line, []),
        [
-        %% DecMod:Decfun(fun NextFun/1, ArgList).
-        emit_decorated_fun(Line, Decorator, NextFuncName, 'ArgList')
+        %% DecMod:Decfun(fun NextFun/1, [Arg1, Arg2, ...]).
+        emit_decorated_fun(Line, Decorator, NextFuncName, ArgNames)
        ]
       }]
     }.
 
 
-emit_decorated_fun(Line, {DecMod, DecFun}, InnerFunName, ArgName) ->
+emit_decorated_fun(Line, {DecMod, DecFun}, InnerFunName, ArgNames) ->
+    Arity = length(ArgNames),
     {call, Line,
      {remote, Line, {atom, Line, DecMod}, {atom, Line, DecFun}},
      [
-      {'fun', Line, {function, InnerFunName, 1}},
-      {var, Line, ArgName}
+      {'fun', Line, {function, InnerFunName, Arity}},
+      emit_var_list(Line, ArgNames)
      ]
     };
-emit_decorated_fun(Line, DecFun, InnerFunName, ArgName) ->
-    {call, Line,
-     {atom, Line, DecFun},
-     [
-      {'fun', Line, {function, InnerFunName, 1}},
-      {var, Line, ArgName}
-     ]
-    }.
+emit_decorated_fun(Line, DecFun, InnerFunName, ArgNames) ->
+    Arity = length(ArgNames),
+    ArgList = [{'fun', Line, {function, InnerFunName, Arity}},
+               emit_var_list(Line, ArgNames)],
+    emit_local_call(Line, DecFun, ArgList).
+
 
 emit_local_call(Line, FuncName, ArgList) ->
     {call, Line, {atom, Line, FuncName}, ArgList}.
@@ -141,7 +132,7 @@ emit_guards(_, _) ->
     throw(not_yet_implemented).
 
 
-emit_atom_list(Line, AtomList) ->
+emit_var_list(Line, AtomList) ->
     %% build a list of args out of cons cells
     %% {cons, 43, {var, 43, 'Arg1'}, {cons, 43, {var, 43, 'Arg2'}, {nil, 43}}}
     lists:foldr(fun (Arg, Acc) ->
@@ -242,5 +233,5 @@ args_to_list_form_of_args_test() ->
     Line=1,
     ?assertEqual(
        {cons, Line, {var, Line, 'Arg1'}, {cons, Line, {var, Line, 'Arg2'}, {nil, Line}}},
-       emit_atom_list(Line, ['Arg1', 'Arg2'])
+       emit_var_list(Line, ['Arg1', 'Arg2'])
       ).

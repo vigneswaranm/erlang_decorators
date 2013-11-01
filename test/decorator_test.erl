@@ -8,7 +8,7 @@
 % example decorator that replaces the return value with the atom 'replaced'
 % note that we always pass the arguments as a single list to the next fun
 replace_return_value_decorator(F, Args)->
-    _R = apply(F, [Args]),
+    _R = apply(F, Args),
     replaced.
 
 -decorate({?MODULE, replace_return_value_decorator}).
@@ -16,7 +16,7 @@ replace_ret_val_decorated() -> ok.
 
 
 replace_args_decorator(F, _Args)->
-    apply(F, [[replaced1, replaced2]]).
+    apply(F, [replaced1, replaced2]).
 
 -decorate(replace_args_decorator).
 replace_args_decorated(replaced1, replaced2) -> ok.
