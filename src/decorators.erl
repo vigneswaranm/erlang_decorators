@@ -7,12 +7,12 @@
 %% TODO: add warnings for rogue decorators
 parse_transform(Ast, _Options) ->
     %%io:format("~p~n=======~n",[Ast]),
-    %%io:format("~s~n=======~n",[pretty_print(Ast)]),
+    io:format("~s~n=======~n",[pretty_print(Ast)]),
     {ExtendedAst2, RogueDecorators} = lists:mapfoldl(fun transform_node/2, [], Ast),
     Ast2 = lists:flatten(lists:filter(fun (Node) -> Node =/= nil end, ExtendedAst2))
     ++ emit_errors_for_rogue_decorators(RogueDecorators),
     %%io:format("~p~n<<<<~n",[Ast2]),
-    %%io:format("~s~n>>>>~n",[pretty_print(Ast2)]),
+    io:format("~s~n>>>>~n",[pretty_print(Ast2)]),
     Ast2.
 
 
@@ -99,7 +99,7 @@ function_forms_decorator_chain(Line, FuncName, Arity, DecoratorList) ->
       || { {attribute, _, decorate, D}, I} <- DecoratorIndexes ] .
 
 
-function_form_decorator_chain(Line, FuncName, Arity, {DecMod, DecFun}, DecoratorIndex) ->
+function_form_decorator_chain(Line, FuncName, Arity, Decorator, DecoratorIndex) ->
     NextFuncName = generated_func_name({decorator_wrapper, FuncName, Arity, DecoratorIndex-1}),
     {function, Line,
      generated_func_name({decorator_wrapper, FuncName, Arity, DecoratorIndex}), %% name
@@ -108,25 +108,28 @@ function_form_decorator_chain(Line, FuncName, Arity, {DecMod, DecFun}, Decorator
         emit_arguments(Line, ['ArgList'] ),
         emit_guards(Line, []),
         [
-         %% F = DecMod:Decfun ( fun NextFun/1, ArgList),
-         emit_decorated_fun (Line, 'F', {DecMod, DecFun},	NextFuncName, 'ArgList'),
-         %% call 'F'
-         {call, Line,{var, Line,'F'},[]}
+         %% DecMod:Decfun ( fun NextFun/1, ArgList).
+         emit_decorated_fun(Line, Decorator, NextFuncName, 'ArgList')
         ]
       }]
     }.
 
 
-emit_decorated_fun (Line, Name, {DecMod, DecFun}, InnerFunName, ArgName) ->
-    {match, Line,
-     {var, Line, Name},
-     {call, Line,
-      {remote, Line, {atom, Line, DecMod},{atom, Line, DecFun}},
-      [
-       {'fun', Line,{function, InnerFunName, 1}},
-       {var, Line, ArgName}
-      ]
-     }
+emit_decorated_fun(Line, {DecMod, DecFun}, InnerFunName, ArgName) ->
+    {call, Line,
+     {remote, Line, {atom, Line, DecMod},{atom, Line, DecFun}},
+     [
+      {'fun', Line,{function, InnerFunName, 1}},
+      {var, Line, ArgName}
+     ]
+    };
+emit_decorated_fun(Line, DecFun, InnerFunName, ArgName) ->
+    {call, Line,
+     {atom, Line, DecFun},
+     [
+      {'fun', Line,{function, InnerFunName, 1}},
+      {var, Line, ArgName}
+     ]
     }.
 
 emit_local_call(Line, FuncName, ArgList) ->
@@ -159,15 +162,16 @@ generated_func_name( {decorator_wrapper, OrigName, Arity, N} ) ->
 
 %% list() -> atom()
 atom_name(Elements) ->
-    list_to_atom(lists:flatten(lists:map(
-                                 fun
-                                     (A) when is_atom(A) -> atom_to_list(A);
-            (A) when is_number(A) -> io_lib:format("~p",[A]);
-            (A) when is_binary(A) -> io_lib:format("~s",[A]);
-            (A) when is_list(A) -> io_lib:format("~s",[A])
-                                 end,
-                                 Elements
-                                ))).
+    list_to_atom(
+      lists:flatten(
+        lists:map(
+          fun (A) when is_atom(A) -> atom_to_list(A);
+              (A) when is_number(A) -> io_lib:format("~p",[A]);
+              (A) when is_binary(A) -> io_lib:format("~s",[A]);
+              (A) when is_list(A) -> io_lib:format("~s",[A])
+          end,
+          Elements
+         ))).
 
 
 arg_names(Arity) ->
@@ -177,19 +181,19 @@ arg_names(Arity) ->
 
 
 % for example
-%	-decorate({decmod, decfun2}).
-%	-decorate({decmod, decfun1}).
-%	baz(N1, N2) -> 0.
+%    -decorate({decmod, decfun2}).
+%    -decorate({decmod, decfun1}).
+%    baz(N1, N2) -> 0.
 % is transformed into
-%	baz_arity2_original(N1, N2) -> 0.
-%	baz_arity2_0([N1, N2]) -> baz_arity2_original(N1, N2).
-%	baz_arity2_1(Args) ->
-%		F = decmod:decfun1(fun baz_arity2_0/1, Args),
-%		F().
-%	baz_arity2_2(Args) ->
-%		F = decmod:decfun2(fun baz_arity2_1/1, Args),
-%		F().
-%	baz(N1, N2) -> baz_arity2_2([N1, N2]).
+%    baz_arity2_original(N1, N2) -> 0.
+%    baz_arity2_0([N1, N2]) -> baz_arity2_original(N1, N2).
+%    baz_arity2_1(Args) ->
+%        F = decmod:decfun1(fun baz_arity2_0/1, Args),
+%        F().
+%    baz_arity2_2(Args) ->
+%        F = decmod:decfun2(fun baz_arity2_1/1, Args),
+%        F().
+%    baz(N1, N2) -> baz_arity2_2([N1, N2]).
 % which is output as
 % {function, 35, baz_arity2_original, 0,[{clause, 35,[],[],[{integer, 35, 0}]}]},
 % {function, 36, baz_arity2_0, 1,
