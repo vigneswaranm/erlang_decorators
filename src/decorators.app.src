@@ -1,12 +1,8 @@
 {application, decorators,
  [
   {description, ""},
-  {vsn, "1"},
+  {vsn, git},
   {registered, []},
-  {applications, [
-                  kernel,
-                  stdlib
-                 ]},
-  {mod, { decorators_app, []}},
+  {applications, [kernel, stdlib, syntax_tools]},
   {env, []}
  ]}.
