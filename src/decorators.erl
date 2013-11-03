@@ -70,7 +70,7 @@ function_form_trampoline(Line, FuncName, Arity, DecoratorList) ->
        emit_guards(Line, []),
        [emit_local_call(
           Line,
-          generated_func_name({decorator_wrapper, FuncName, Arity, NumDecorators}),
+          generated_func_name({decorator_wrapper, FuncName, NumDecorators}),
           emit_arguments(Line, ArgNames))]
       }]}.
 
@@ -88,10 +88,10 @@ function_form_decorator_chain(Line, FuncName, Arity, Decorator, DecoratorIndex) 
                        0 ->
                            generated_func_name({original, FuncName});
                        N ->
-                           generated_func_name({decorator_wrapper, FuncName, Arity, N})
+                           generated_func_name({decorator_wrapper, FuncName, N})
                    end,
     {function, Line,
-     generated_func_name({decorator_wrapper, FuncName, Arity, DecoratorIndex}),
+     generated_func_name({decorator_wrapper, FuncName, DecoratorIndex}),
      Arity,
      [{clause, Line,
        emit_arguments(Line, ArgNames),
@@ -156,8 +156,8 @@ generated_func_name({original, OrigName} ) ->
     atom_name([OrigName, "_original___"]);
 generated_func_name({trampoline, OrigName} ) ->
     OrigName;
-generated_func_name({decorator_wrapper, OrigName, Arity, N} ) ->
-    atom_name([OrigName, "_arity", Arity, "_", N]).
+generated_func_name({decorator_wrapper, OrigName, N} ) ->
+    atom_name([OrigName, "_decorator", N, "___"]).
 
 %% list() -> atom()
 atom_name(Elements) ->
