@@ -2,6 +2,22 @@
 
 An early implementation of python style decorators for Erlang.
 
+# Quick start
+
+Add the following to your rebar.config:
+```erlang
+{deps,
+ [
+  {decorators, "", {git, "git://github.com/chrisavl/erlang_decorators.git", {branch, "master"}}}
+ ]
+}.
+```
+
+Add `-compile([{parse_transform, decorators}]).` to any source file using
+decorators, or add `{erl_opts, [{parse_transform, decorators}]}.` to your
+rebar.config.
+
+
 # Usage
 
 There are 4 ways to decorate a function:
@@ -40,6 +56,3 @@ my_long_running_function(A, B) ->
 demo() ->
     3 = my_long_running_function(1, 2).
 ```
-
-# TODO
-  * Allow custom named decorators for nicer syntax
